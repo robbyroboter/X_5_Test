@@ -1,0 +1,534 @@
+openapi: 3.0.3
+info:
+  title: Bank Cards Management API
+  description: |
+    Backend API для управления банковскими картами.
+    
+    ## Аутентификация
+    - Логин: `POST /api/auth/login`
+    - Authorization: `Bearer <token>`
+    
+    ## Роли
+    - **ADMIN**: полный доступ
+    - **USER**: свои карты и переводы
+    
+    ## Тестовые данные:
+    - admin/admin123 (ADMIN)
+    - user/user123 (USER)
+  version: 1.0.0
+  contact:
+    name: Your Name
+    email: your.email@example.com
+
+servers:
+  - url: http://localhost:8080/api
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # Auth
+    AuthRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: admin
+        password:
+          type: string
+          example: admin123
+          writeOnly: true
+
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type:
+          type: string
+          example: Bearer
+        username:
+          type: string
+          example: admin
+        roles:
+          type: array
+          items:
+            type: string
+          example: ["ROLE_ADMIN"]
+
+    # Users
+    UserDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        username:
+          type: string
+          example: admin
+        firstName:
+          type: string
+          example: Admin
+        lastName:
+          type: string
+          example: User
+        enabled:
+          type: boolean
+          example: true
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [ADMIN, USER]
+          example: ["ADMIN"]
+
+    UserCreateRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          example: newuser
+        password:
+          type: string
+          example: password123
+          writeOnly: true
+        firstName:
+          type: string
+          example: New
+        lastName:
+          type: string
+          example: User
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [ADMIN, USER]
+          example: ["USER"]
+
+    # Cards
+    CardDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        maskedNumber:
+          type: string
+          example: "**** **** **** 1234"
+        expiryDate:
+          type: string
+          format: date
+          example: "2026-12-01"
+        status:
+          type: string
+          enum: [ACTIVE, BLOCKED, EXPIRED]
+          example: ACTIVE
+        balance:
+          type: number
+          format: double
+          example: 1000.00
+        ownerName:
+          type: string
+          example: Admin User
+
+    CardCreateRequest:
+      type: object
+      required:
+        - number
+        - expiryDate
+        - ownerId
+      properties:
+        number:
+          type: string
+          example: 1234567812345678
+        expiryDate:
+          type: string
+          format: date
+          example: "2026-12-01"
+        initialBalance:
+          type: number
+          format: double
+          example: 1000.00
+        ownerId:
+          type: integer
+          format: int64
+          example: 1
+
+    # Transfers
+    TransferRequest:
+      type: object
+      required:
+        - fromCardId
+        - toCardId
+        - amount
+      properties:
+        fromCardId:
+          type: integer
+          format: int64
+          example: 1
+        toCardId:
+          type: integer
+          format: int64
+          example: 2
+        amount:
+          type: number
+          format: double
+          minimum: 0.01
+          example: 100.00
+
+    TransferDto:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          example: 1
+        fromCardId:
+          type: integer
+          format: int64
+          example: 1
+        toCardId:
+          type: integer
+          format: int64
+          example: 2
+        amount:
+          type: number
+          format: double
+          example: 100.00
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-02-01T18:00:00"
+        status:
+          type: string
+          enum: [PENDING, COMPLETED, FAILED]
+          example: COMPLETED
+
+    # Errors
+    ErrorResponse:
+      type: object
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        status:
+          type: integer
+          example: 400
+        error:
+          type: string
+          example: "Bad Request"
+        message:
+          type: string
+          example: "Card number must contain exactly 16 digits"
+        path:
+          type: string
+          example: "/api/admin/cards"
+
+paths:
+  # Auth
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Получить JWT токен
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthRequest'
+      responses:
+        '200':
+          description: Успешный логин
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Неверные учетные данные
+
+  # Users (ADMIN)
+  /users:
+    get:
+      tags: [Users]
+      summary: Получить всех пользователей (ADMIN)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Список пользователей
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UserDto'
+    post:
+      tags: [Users]
+      summary: Создать пользователя (ADMIN)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreateRequest'
+      responses:
+        '200':
+          description: Созданный пользователь
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+
+  /users/{id}:
+    get:
+      tags: [Users]
+      summary: Получить пользователя по ID (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Пользователь найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserDto'
+    put:
+      tags: [Users]
+      summary: Обновить пользователя (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserDto'
+      responses:
+        '200':
+          description: Пользователь обновлен
+    delete:
+      tags: [Users]
+      summary: Удалить пользователя (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Пользователь удален
+
+  # Cards ADMIN
+  /admin/cards:
+    post:
+      tags: [Cards-Admin]
+      summary: Создать карту (ADMIN)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CardCreateRequest'
+      responses:
+        '200':
+          description: Карта создана
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardDto'
+
+  /admin/cards/{id}/block:
+    patch:
+      tags: [Cards-Admin]
+      summary: Заблокировать карту (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Карта заблокирована
+
+  /admin/cards/{id}/activate:
+    patch:
+      tags: [Cards-Admin]
+      summary: Активировать карту (ADMIN)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Карта активирована
+
+  # Cards USER
+  /cards:
+    get:
+      tags: [Cards-User]
+      summary: Получить свои карты (USER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, BLOCKED, EXPIRED]
+        - name: maskedNumber
+          in: query
+          schema:
+            type: string
+            example: 1234
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 0
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Список карт
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CardDto'
+                  totalElements:
+                    type: integer
+
+  /cards/{id}:
+    get:
+      tags: [Cards-User]
+      summary: Получить свою карту (USER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Карта найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardDto'
+
+  /cards/{id}/block-request:
+    post:
+      tags: [Cards-User]
+      summary: Запросить блокировку карты (USER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Карта заблокирована
+
+  /cards/{id}/balance:
+    get:
+      tags: [Cards-User]
+      summary: Баланс карты (USER)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Баланс карты
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CardDto'
+
+  # Transfers
+  /transfers:
+    post:
+      tags: [Transfers]
+      summary: Перевод между своими картами (USER)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TransferRequest'
+      responses:
+        '200':
+          description: Перевод выполнен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TransferDto'

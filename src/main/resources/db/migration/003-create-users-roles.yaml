@@ -1,0 +1,25 @@
+databaseChangeLog:
+  - changeSet:
+      id: 003-create-users-roles-table
+      author: rostislavzuev
+      changes:
+        - createTable:
+            tableName: users_roles
+            columns:
+              - column:
+                  name: user_id
+                  type: bigint
+                  constraints:
+                    foreignKey:
+                      name: fk_users_roles_user_id
+                      referencedTableName: users
+                      referencedColumnNames: id
+              - column:
+                  name: role_id
+                  type: bigint
+                  constraints:
+                    primaryKey: true
+                    foreignKey:
+                      name: fk_users_roles_role_id
+                      referencedTableName: roles
+                      referencedColumnNames: id

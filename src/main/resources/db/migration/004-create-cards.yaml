@@ -1,0 +1,51 @@
+databaseChangeLog:
+  - changeSet:
+      id: 004-create-cards-table
+      author: rostislavzuev
+      changes:
+        - createTable:
+            tableName: cards
+            columns:
+              - column:
+                  name: id
+                  type: bigint
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+              - column:
+                  name: encrypted_number
+                  type: varchar(500)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: masked_number
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: owner_id
+                  type: bigint
+                  constraints:
+                    nullable: false
+                    foreignKey:
+                      name: fk_cards_owner_id
+                      referencedTableName: users
+                      referencedColumnNames: id
+              - column:
+                  name: expiry_date
+                  type: date
+              - column:
+                  name: status
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: balance
+                  type: decimal(19,2)
+                  defaultValueNumeric: 0
+              - column:
+                  name: created_at
+                  type: timestamp
+              - column:
+                  name: updated_at
+                  type: timestamp
